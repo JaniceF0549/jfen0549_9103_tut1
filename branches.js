@@ -57,6 +57,7 @@ class Circles {
 
     let prevD = random(10, 60);
 
+    //Starting colours for the base of the branches
     let baseTop = color(random(80, 100), random(50, 70), random(40, 50))
     let baseBottom = color(random(120, 150), random(80, 100), random(50, 80))
 
@@ -66,8 +67,8 @@ class Circles {
       let lerpAmt = sqrt(i / segments) //stronger gradient transition to colours
        // Calculate the color for this segment based on progress
       let t = i / (segments - 1); // progress from 0 to 1
-      let interpolatedTop = lerpColor(baseTop, colorPair[0], lerpAmt);    // start from white or base
-      let interpolatedBottom = lerpColor(baseBottom, colorPair[1], lerpAmt); // makes gradient more "intense" as it progresses
+      let interpolatedTop = lerpColor(baseTop, colorPair[0], lerpAmt);    // start from brown -> seasonal colour
+      let interpolatedBottom = lerpColor(baseBottom, colorPair[1], lerpAmt); 
 
       // Move in direction of angle
       x += cos(angle) * (prevD / 2 + newD / 2);

@@ -13,6 +13,7 @@ function setup() {
   let trunk = new Circles(img.width/2, img.height - img.height/5.5, 50)
   trunk.generateTrunk()
   trunk.generateBranches()
+  trunk.growBranch()
 
   createCanvas(img.width, img.height);
   extractBackgroundPalette();
@@ -31,7 +32,7 @@ function draw() {
   for (let ball of balls) {
     ball.display();
     }
-  trunk.growBranch()
+
 }
 
 //Randomly sample the entire image
