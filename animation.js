@@ -8,11 +8,11 @@ let startButton;
 let speedButton;
 
 function preload() {
-  audio = loadSound('Assets/wintertospring.wav'); 
+  audio = loadSound('Assets/wintertospring.wav'); // 替换路径
 }
 
 function setup() {
-  createCanvas(650, 900); 
+  createCanvas(650, 900); // 保持原画布大小
   amplitude = new p5.Amplitude();
 
   // 播放按钮
@@ -58,90 +58,101 @@ function draw() {
   let level = amplitude.getLevel();
   let t = audio.currentTime();
 
-  // 1. 背景渐变
+  // 背景渐变（加入粉色中间过渡，最终为淡蓝色）
+  let bgColor;
   if (t < 72) {
-    background(20, 30, 50); // 冬天昏暗
+    bgColor = color(20, 30, 50); // 冬天昏暗
+  } else if (t < 77) {
+    let p = map(t, 72, 77, 0, 1);
+    bgColor = lerpColor(color(20, 30, 50), color(255, 220, 230), p); // 淡粉
   } else if (t < 82) {
-    let p = map(t, 72, 82, 0, 1);
-    let col = lerpColor(color(20, 30, 50), color(245, 250, 255), p);
-    background(col);
+    let p = map(t, 77, 82, 0, 1);
+    bgColor = lerpColor(color(255, 220, 230), color(200, 230, 255), p); // 粉变蓝
   } else {
-    background(245, 250, 255); // 春天明亮
+    bgColor = color(200, 230, 255); // 明亮春天淡蓝色
   }
+  background(bgColor);
 
-  // 2. 冬天雪花生成
+  // 冬天阶段下雪（数量随音量，速度固定）
   if (t < 72) {
-    if (frameCount % 3 === 0) {
-      let count = map(level, 0, 0.3, 2, 10);
+    if (frameCount % 2 === 0) {
+      let count = map(level, 0, 0.3, 1, 30); // 音量控制雪密度
       for (let i = 0; i < count; i++) {
         snowflakes.push({
           x: random(width),
           y: 0,
-          size: random(2, 5),
-          speed: random(1, 2)
+          size: random(3, 7),
+          speed: 2 // 固定速度
         });
       }
     }
   }
 
-  // 3. 雪花运动和堆积逻辑
+  // 雪花运动和堆积
   for (let flake of snowflakes) {
     flake.y += flake.speed;
     ellipse(flake.x, flake.y, flake.size);
 
-    // 判断是否撞击 balls 上
     for (let i = 0; i < balls.length; i++) {
       let b = balls[i];
       let d = dist(flake.x, flake.y, b.ballXPos, b.ballYPos);
       if (d < b.ballDiameter / 2) {
-        snowAccum[i].amount = constrain(snowAccum[i].amount + 0.5, 0, 20);
+        snowAccum[i].amount = constrain(snowAccum[i].amount + 1, 0, 60);
         flake.y = height + 10;
       }
     }
   }
-
-  // 清除出界雪花
   snowflakes = snowflakes.filter(f => f.y < height + 5);
 
-  // 4. 雪融化阶段
-  if (t >= 72 && t < 82) {
-    let fade = map(t, 72, 82, 0, 1);
-    for (let s of snowAccum) {
-      s.amount *= (1 - fade);
-    }
-  }
-
-  // 5. 雪堆积显示
+  // 显示雪堆积
   noStroke();
   fill(255);
-  for (let s of snowAccum) {
-    if (s.amount > 1) {
-      ellipse(s.x, s.y - 5, s.amount, s.amount / 2);
+  if (t < 82) {
+    for (let s of snowAccum) {
+      if (s.amount > 1) {
+        ellipse(s.x, s.y - s.amount / 4, s.amount, s.amount / 1.8);
+      }
+    }
+  } else {
+    for (let s of snowAccum) {
+      if (s.amount > 1) {
+        s.amount *= 0.95; // 缓慢融化
+        ellipse(s.x, s.y - s.amount / 4, s.amount, s.amount / 1.8);
+      }
     }
   }
 
-  // 6. 显示树
+  // 显示树
   for (let ball of balls) {
     ball.display();
   }
 
-  // 7. 春天：音量驱动新生长
-  if (t > 82 && frameCount % int(map(level, 0, 0.3, 60, 5)) === 0) {
-    growNewBranchSegment(level);
+  // 春天生长
+  if (t > 82) {
+    if (frameCount % int(map(level, 0, 0.3, 40, 4)) === 0) {
+      growFromBranchEnds(level);
+    }
   }
 }
 
-// 音量驱动生成新的小段树枝
-function growNewBranchSegment(level) {
-  let last = balls[balls.length - 1];
-  let angle = random(-PI / 6, PI / 6);
-  let len = map(level, 0, 0.3, 10, 50);
-  let x = last.ballXPos + cos(angle) * len;
-  let y = last.ballYPos - sin(angle) * len;
-  let d = random(10, 30);
-  let top = color(100, 200, 100);
-  let bottom = color(80, 180, 80);
+function growFromBranchEnds(level) {
+  let numBranches = 4;
+  let angleOffsets = [-PI/6, -PI/3, -TWO_PI/3, -(5*PI)/6];
+  const seasonColor = [color(120, 255, 120), color(80, 200, 80)];
 
-  balls.push(new Circles(x, y, d, top, bottom));
-  snowAccum.push({ x, y, amount: 0 });
+  for (let j = 0; j < numBranches; j++) {
+    let start = balls[balls.length - 1 - j * 6];
+    let angle = angleOffsets[j] + random(-PI/12, PI/12);
+    let len = map(level, 0, 0.3, 10, 70);
+    let x = start.ballXPos + cos(angle) * len;
+    let y = start.ballYPos + sin(angle) * len;
+    let d = random(10, 30);
+
+    let lerpAmt = 0.8;
+    let top = lerpColor(color(100, 80, 60), seasonColor[0], lerpAmt);
+    let bottom = lerpColor(color(120, 100, 80), seasonColor[1], lerpAmt);
+
+    balls.push(new Circles(x, y, d, top, bottom));
+    snowAccum.push({ x, y, amount: 0 });
+  }
 }
