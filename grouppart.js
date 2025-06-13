@@ -1,11 +1,11 @@
 //Circles class storing information of each ball
 class Circles {
 
-  constructor(starterXPos, starterYPos, starterDiameter, colorTop, colorBottom){
+  constructor(starterXPos, starterYPos, starterDiameter, colorTop, colorBottom) {
     this.ballXPos = starterXPos
     this.ballYPos = starterYPos
     this.ballDiameter = starterDiameter
-  
+
     //stored random colors with min/max of browns for trunk
     this.colorTop = colorTop ?? color(random(80, 100), random(50, 70), random(40, 50));
     this.colorBottom = colorBottom ?? color(random(120, 150), random(80, 100), random(50, 80));
@@ -13,33 +13,33 @@ class Circles {
     this.StrokeColor = color(0)
     this.StrokeWeight = 0
   }
-  
+
 
   //generate trunk function, logic
   generateTrunk() {
     const segments = 3
-    let y = this.ballYPos 
+    let y = this.ballYPos
     let x = this.ballXPos
     let prevD = this.ballDiameter
-    
+
     //push initial ball
     balls.push(this)
 
     //logic to keep balls connected
-    for (let i=0; i<segments; i++){
+    for (let i = 0; i < segments; i++) {
       let newD = Math.round(random(10, 80))
       //change y pos of next ball by radius of previous ball + new ball
-      y -= (prevD/2 + newD/2) 
+      y -= (prevD / 2 + newD / 2)
       balls.push(new Circles(x, y, newD))
       prevD = newD
-  
+
     }
   }
 
   generateBranches() {
     const start = balls[balls.length - 1]; // Top of the trunk
     const numBranches = 4;
-    const angleOffsets = [-PI/6, -PI/3, -TWO_PI/3, -(5*PI)/6]; // Direction spread
+    const angleOffsets = [-PI / 6, -PI / 3, -TWO_PI / 3, -(5 * PI) / 6]; // Direction spread
 
     const seasonColors = [
       [color(120, 255, 120), color(80, 200, 80)], // Spring (light green)
@@ -65,10 +65,10 @@ class Circles {
       let newD = random(10, 60);
 
       let lerpAmt = sqrt(i / segments) //stronger gradient transition to colours
-       // Calculate the color for this segment based on progress
+      // Calculate the color for this segment based on progress
       let t = i / (segments - 1); // progress from 0 to 1
       let interpolatedTop = lerpColor(baseTop, colorPair[0], lerpAmt);    // start from brown -> seasonal colour
-      let interpolatedBottom = lerpColor(baseBottom, colorPair[1], lerpAmt); 
+      let interpolatedBottom = lerpColor(baseBottom, colorPair[1], lerpAmt);
 
       // Move in direction of angle
       x += cos(angle) * (prevD / 2 + newD / 2);
@@ -83,7 +83,7 @@ class Circles {
   }
 
 
-  display(){  
+  display(isWinter) {
 
     push()
 
@@ -93,15 +93,21 @@ class Circles {
     strokeWeight(this.StrokeWeight)
 
     fill(this.colorTop)
-    arc(0,0, this.ballDiameter, this.ballDiameter, PI/2, (3*PI)/2, PIE)
+    arc(0, 0, this.ballDiameter, this.ballDiameter, PI / 2, (3 * PI) / 2, PIE)
 
     fill(this.colorBottom)
-    arc(0,0, this.ballDiameter, this.ballDiameter, (3*PI)/2, PI/2)
+    arc(0, 0, this.ballDiameter, this.ballDiameter, (3 * PI) / 2, PI / 2)
+
+    if (isWinter) {
+      fill(255);
+      arc(0, 0, this.ballDiameter, this.ballDiameter, PI, TWO_PI)
+    }
 
 
     pop()
-    
+
   }
+
 }
 
 let img;
@@ -109,14 +115,34 @@ let palette = [];
 let borderColor;
 let columnWidths = [];
 let balls = []
-
+// 存储雪花对象的数组，用于模拟下雪效果
+let snowflakes = [];
+// 用于创建图形缓冲区，存储马赛克背景的图形对象
+let mosaicPG;
+// 标志位，判断当前是否为冬季，初始值为 true 表示冬季
+let isWinter = true;
+// 雪的高度，用于控制雪堆积的高度
+let snowHeight = 0;
+// 存储背景音乐的音频对象
+let bgmSound;
+// 自定义的帧计数器，用于控制某些动画的执行频率
+let myFrameCount = 0;
+// 标志位，判断是否开启快速播放模式，初始值为 false 表示正常播放
+let isFast = false;
+// 用于创建快速播放/停止按钮的 
+let fastButton;
+// 存储树干对象，用于生成树的树干、树枝等结构
+let trunk;
+// 树的缩放比例，初始值为 0.5
+let treeScale = 0.5;
 
 function preload() {
-  img = loadImage('Assets/Anwar Jalal Shemza Apple Tree.jpeg'); 
+  img = loadImage('Assets/Anwar Jalal Shemza Apple Tree.jpeg');
+  bgmSound = loadSound("Assets/wintertospring.wav");
 }
 
 function setup() {
-  let trunk = new Circles(img.width/2, img.height - img.height/5.5, 50)
+  trunk = new Circles(img.width / 2, img.height - img.height / 5.5, 50)
   trunk.generateTrunk()
   trunk.generateBranches()
   trunk.growBranch()
@@ -126,19 +152,101 @@ function setup() {
 
   borderColor = color(152, 182, 180); //Light gray blue border
   generateColumnWidths();
-
-  drawBorder();
-  drawMosaicBackground();
+  mosaicPG = createGraphics(img.width, img.height);
+  mosaicPG.noStroke();
+  generateMosaicBackground();
   addTexture();
   addScratches();
-  drawBase()
+
+   // 创建50个雪花对象
+  for (let i = 0; i < 50; i++) {
+    snowflakes.push(new Snowflake());
+  }
+
+  // 当到达第 75 秒时，将 isWinter 设为 false
+  bgmSound.addCue(75, function () {
+    isWinter = false;
+  });
+
+  // 创建快速播放/停止按钮
+  fastButton = createButton("Fast");
+  fastButton.position(10, 10);
+  fastButton.mousePressed(function () {
+    isFast = !isFast;
+    if (isFast) {
+      // 将 bgmSound 变为 2 倍速
+      bgmSound.rate(2);
+      // 将 fastButton 的文字改为 Stop
+      fastButton.html("Stop");
+    } else {
+      bgmSound.rate(1);
+      // 将 fastButton 的文字改为 Fast
+      fastButton.html("Fast");
+    }
+  })
 }
 
 function draw() {
-  for (let ball of balls) {
-    ball.display();
-    }
+  handleDraw();
+  // 快速模式
+  if (isFast) {
+    handleDraw()
+  }
+}
 
+function handleDraw() {
+  background(255);
+  drawBorder();
+  image(mosaicPG, 0, 0);
+  drawBase()
+
+  // 树干
+  push();
+  translate(width / 2, trunk.ballYPos);
+  scale(treeScale);
+  translate(-width / 2, -trunk.ballYPos);
+  for (let ball of balls) {
+    ball.display(isWinter);
+  }
+  pop()
+
+  if (isWinter) {
+    // 昏暗环境
+    noStroke();
+    fill(0, 100);
+    rect(0, 0, width, height);
+
+    // 如果正在播放
+    if (bgmSound.isPlaying()) {
+      // 下雪
+      for (let flake of snowflakes) {
+        flake.update();
+        flake.display();
+      }
+  
+      // 积雪
+      fill(255);
+      rect(0, 555 - snowHeight, width, snowHeight);
+      if (snowHeight < 80 && myFrameCount % 30 == 0) {
+        snowHeight++;
+      }
+    }
+  } else {
+    fill(255);
+    rect(0, 555 - snowHeight, width, snowHeight);
+    if (myFrameCount % 30 == 0) {
+      // 清除积雪
+      if (snowHeight > 0) {
+        snowHeight--;
+      }
+      // 树变大
+      if (treeScale < 1) {
+        treeScale += 0.01;
+      }
+    }
+  }
+
+  myFrameCount++;
 }
 
 //Randomly sample the entire image
@@ -201,7 +309,6 @@ function getBackgroundColor(x, y) {
   return random(palette);
 }
 
-
 //Generate random column width
 function generateColumnWidths() {
   let margin = 25;
@@ -227,7 +334,7 @@ function generateColumnWidths() {
     remaining -= w; //Update remaining width
   }
 
-    //lets draw the base and trunk to the canvas
+  //lets draw the base and trunk to the canvas
   drawBase();
   drawTrunk();
 
@@ -241,7 +348,7 @@ function drawBorder() {
   rect(0, 0, img.width, img.height);
 }
 
-function drawMosaicBackground() {
+function generateMosaicBackground() {
   let margin = 25;
   let segmentHeight = 25;
   let prevRowColors = []; //Store the color of the previous row
@@ -265,8 +372,9 @@ function drawMosaicBackground() {
         baseColor = lerpColor(upperColor, baseColor, random(0.3, 0.7));
       }
 
-      fill(baseColor);
-      rect(x, y, segmentWidth, segmentHeight);
+      mosaicPG.fill(baseColor);
+      mosaicPG.rect(x, y, segmentWidth, segmentHeight);
+
       thisRowColors.push(baseColor); //Record the current color
       x += segmentWidth; //Move coordinate
     }
@@ -281,101 +389,131 @@ function addTexture() {
   for (let i = 0; i < 30000; i++) {
     let x = random(width);
     let y = random(height);
-    stroke(255, 20);
-    point(x, y);
+    mosaicPG.stroke(255, 20);
+    mosaicPG.point(x, y);
   }
 
   //Horizontal fine lines
-  stroke(255, 8);
+  mosaicPG.stroke(255, 8);
   for (let y = 0; y < height; y += 5) { //Every 5 pixels, one line
-    line(0, y + random(-1, 1), width, y + random(-1, 1));
+    mosaicPG.line(0, y + random(-1, 1), width, y + random(-1, 1));
   }
 }
 
 function addScratches() {
-  stroke(255, 30);
+  mosaicPG.stroke(255, 30);
   for (let i = 0; i < 200; i++) {
     let x1 = random(width);
     let y1 = random(height);
     let x2 = x1 + random(-30, 30);
     let y2 = y1 + random(-30, 30);
-    line(x1, y1, x2, y2);
+    mosaicPG.line(x1, y1, x2, y2);
   }
 }
 
 // Draw the trunk, which consists of three half-green and half-dark green circles, arranged vertically against the base.
 function drawTrunk() {
-    let x = width / 2; // Trunk round horizontal center
-    let offsetY = 60; // To adjust the alignment
-    let scale = 1.1; // To adjust the overall size
-  
-    // Calculate the bottom position of the trunk (stick to the top of the base)
-    let baseTop = height - 160 * scale + offsetY;
-    let r = 40 * scale;      // Circle radius (after enlargement)
-    let spacing = r;         // Vertical spacing between circles (edges just touching)
-    let bottomY = baseTop;   // The Y coordinate of the center of the bottom circle
-  
-    // Draw three circles, starting from the bottom and going up
-    for (let i = 0; i < 3; i++) {
-      let y = bottomY - i * spacing;
-  
-      stroke(0); // Add black outline
-      strokeWeight(1);
-  
-      // Left half dark green
+  let x = width / 2; // Trunk round horizontal center
+  let offsetY = 60; // To adjust the alignment
+  let scale = 1.1; // To adjust the overall size
+
+  // Calculate the bottom position of the trunk (stick to the top of the base)
+  let baseTop = height - 160 * scale + offsetY;
+  let r = 40 * scale;      // Circle radius (after enlargement)
+  let spacing = r;         // Vertical spacing between circles (edges just touching)
+  let bottomY = baseTop;   // The Y coordinate of the center of the bottom circle
+
+  // Draw three circles, starting from the bottom and going up
+  for (let i = 0; i < 3; i++) {
+    let y = bottomY - i * spacing;
+
+    stroke(0); // Add black outline
+    strokeWeight(1);
+
+    // Left half dark green
+    fill('#2AA25E');
+    arc(x, y, r, r, PI / 2, PI * 3 / 2, PIE);
+
+    // Right half light green
+    fill('#A8DC80');
+    arc(x, y, r, r, PI * 3 / 2, PI / 2, PIE);
+  }
+}
+
+// Draw the base part, which consists of 9 rectangles, each with a red and green semicircle decoration inside (except for some)
+function drawBase() {
+  let offsetY = 76 + 5; // Base location
+  let scale = 1.1; // To adjust the overall size
+
+  // Top edge position of base
+  let baseTop = height - 160 * scale + offsetY;
+
+  // The size of a single rectangle
+  let cellW = (50 + 1) * scale;
+  let cellH = (50 + 1) * scale;
+
+  // The starting horizontal coordinate of the entire base (to center it horizontally)
+  let xStart = width / 2 - (cellW * 4.5);
+
+  for (let i = 0; i < 9; i++) {
+    let x = xStart + i * cellW;
+
+    // Set the fill color of each rectangle
+    if (i === 0 || i === 8) fill('#A8DC80'); // The two outermost rectangles
+    else if (i === 1 || i === 7) fill('#2AA25E'); // The second two outer rectangles
+    else if (i % 2 === 0) fill('#A8DC80');      // The remaining even numbers are yellow (greenish tone now)
+    else fill('#2AA25E');                       // The remaining odd numbers are orange (now dark green)
+
+    stroke(0); // Add black outline to base rectangles
+    strokeWeight(1);
+    rect(x, baseTop, cellW, cellH); // Draw the base rectangle
+
+    // Coordinates of the center point of the semicircle
+    let cx = x + cellW / 2;
+    let cy = baseTop + cellH / 2;
+
+    noStroke(); // Remove stroke for inner arcs
+
+    // The 5 rectangles in the middle draw red and green semicircles (upper and lower)
+    if (i >= 2 && i <= 6) {
+      fill('#2AA25E'); // Upper half green
+      arc(cx, cy, cellW, cellH, PI, 0, PIE);
+      fill('#C3695D'); // Lower half red
+      arc(cx, cy, cellW, cellH, 0, PI, PIE);
+    } else {
+      // The outer upper green circle
       fill('#2AA25E');
-      arc(x, y, r, r, PI / 2, PI * 3 / 2, PIE);
-  
-      // Right half light green
-      fill('#A8DC80');
-      arc(x, y, r, r, PI * 3 / 2, PI / 2, PIE);
+      arc(cx, cy, cellW, cellH, PI, 0, PIE);
     }
   }
-  
-  // Draw the base part, which consists of 9 rectangles, each with a red and green semicircle decoration inside (except for some)
-  function drawBase() {
-    let offsetY = 76 + 5; // Base location
-    let scale = 1.1; // To adjust the overall size
-  
-    // Top edge position of base
-    let baseTop = height - 160 * scale + offsetY;
-  
-    // The size of a single rectangle
-    let cellW = (50 + 1) * scale;
-    let cellH = (50 + 1) * scale;
-  
-    // The starting horizontal coordinate of the entire base (to center it horizontally)
-    let xStart = width / 2 - (cellW * 4.5);
-  
-    for (let i = 0; i < 9; i++) {
-      let x = xStart + i * cellW;
-  
-      // Set the fill color of each rectangle
-      if (i === 0 || i === 8) fill('#A8DC80'); // The two outermost rectangles
-      else if (i === 1 || i === 7) fill('#2AA25E'); // The second two outer rectangles
-      else if (i % 2 === 0) fill('#A8DC80');      // The remaining even numbers are yellow (greenish tone now)
-      else fill('#2AA25E');                       // The remaining odd numbers are orange (now dark green)
-  
-      stroke(0); // Add black outline to base rectangles
-      strokeWeight(1);
-      rect(x, baseTop, cellW, cellH); // Draw the base rectangle
-  
-      // Coordinates of the center point of the semicircle
-      let cx = x + cellW / 2;
-      let cy = baseTop + cellH / 2;
-  
-      noStroke(); // Remove stroke for inner arcs
-  
-      // The 5 rectangles in the middle draw red and green semicircles (upper and lower)
-      if (i >= 2 && i <= 6) {
-        fill('#2AA25E'); // Upper half green
-        arc(cx, cy, cellW, cellH, PI, 0, PIE);
-        fill('#C3695D'); // Lower half red
-        arc(cx, cy, cellW, cellH, 0, PI, PIE);
-      } else {
-        // The outer upper green circle
-        fill('#2AA25E');
-        arc(cx, cy, cellW, cellH, PI, 0, PIE);
-      }
+}
+
+class Snowflake {
+  constructor() {
+    this.x = random(width);
+    this.y = random(height);
+    this.size = random(2, 8);
+    this.speed = random(1, 3);
+  }
+
+  // 更新雪花位置
+  update() {
+    this.y += this.speed;
+    if (this.y > 550) {
+      this.y = random(-100, -10);
+      this.x = random(width);
     }
   }
+
+  // 绘制雪花
+  display() {
+    fill(255);
+    ellipse(this.x, this.y, this.size, this.size);
+  }
+}
+
+function mousePressed() {
+  if (!bgmSound.isPlaying()) {
+    bgmSound.play()
+  }
+}
