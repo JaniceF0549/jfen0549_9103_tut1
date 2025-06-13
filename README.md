@@ -17,4 +17,4 @@ My other team members focused on changing the size and movement of the apple tre
 ·My inspiration comes from natural phenomena:Visual characteristics of winter and spring alternation.The accumulation and melting of snow are typical images of the transition from winter to spring.
 
 ·In order to implement my animation, I sought the help of AI and friends. After understanding how each part of the code works, I added detailed comments inside the code.
-Ai link:[Link Text](https://chatgpt.com/c/684a8398-c4e8-800e-9cd6-12298863636c)
+[How I ask AI](https://chatgpt.com/c/684a8398-c4e8-800e-9cd6-12298863636c)
