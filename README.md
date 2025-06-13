@@ -1,8 +1,9 @@
 # Description
 
 ### Instructions
-72 seconds before: the scene of winter snowfall with music. 
-72 seconds later: entering spring, snow melt and fruit trees grow with music.
+Click to start.
+75 seconds before: the scene of winter snowfall with music. 
+75 seconds later: entering spring, snow melt and fruit trees grow with music.
 You can click the button to accelerate.
 
 ### Details

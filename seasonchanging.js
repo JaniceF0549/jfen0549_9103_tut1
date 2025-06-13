@@ -12,6 +12,7 @@ class Circles {
 
     this.StrokeColor = color(0)
     this.StrokeWeight = 0
+    this.a = 0;
   }
 
 
@@ -82,7 +83,7 @@ class Circles {
     }
   }
 
-
+  // Draw the snow on the tree
   display(isWinter) {
 
     push()
@@ -92,17 +93,20 @@ class Circles {
     stroke(this.StrokeColor)
     strokeWeight(this.StrokeWeight)
 
+    // Draw the upper semicircle
     fill(this.colorTop)
     arc(0, 0, this.ballDiameter, this.ballDiameter, PI / 2, (3 * PI) / 2, PIE)
 
+    //Draw the lower semicircle
     fill(this.colorBottom)
     arc(0, 0, this.ballDiameter, this.ballDiameter, (3 * PI) / 2, PI / 2)
 
-    if (isWinter) {
-      fill(255);
+    if (isWinter && bgmSound.isPlaying()) {
+      fill(255, this.a);// Translucent white
+      // fill(255);
       arc(0, 0, this.ballDiameter, this.ballDiameter, PI, TWO_PI)
+      this.a += 1;// The snow gradually thickens
     }
-
 
     pop()
 
@@ -115,26 +119,30 @@ let palette = [];
 let borderColor;
 let columnWidths = [];
 let balls = []
-// 存储雪花对象的数组，用于模拟下雪效果
+// An array storing snowflake objects for simulating snow effects
 let snowflakes = [];
-// 用于创建图形缓冲区，存储马赛克背景的图形对象
+// Used to create a graphics buffer to store graphic objects with mosaic backgrounds
 let mosaicPG;
-// 标志位，判断当前是否为冬季，初始值为 true 表示冬季
+// Determine whether it is currently winter, with an initial value of true indicating winter
 let isWinter = true;
-// 雪的高度，用于控制雪堆积的高度
+// The height of snow, used to control the height of snow accumulation
 let snowHeight = 0;
-// 存储背景音乐的音频对象
+// Store audio objects for background music
 let bgmSound;
-// 自定义的帧计数器，用于控制某些动画的执行频率
+// Custom frame counter used to control the execution frequency of certain animations
 let myFrameCount = 0;
-// 标志位，判断是否开启快速播放模式，初始值为 false 表示正常播放
+// Determine whether to enable fast playback mode, initial value of false indicates normal playback
 let isFast = false;
-// 用于创建快速播放/停止按钮的 
+// Use to create quick play/stop buttons
 let fastButton;
-// 存储树干对象，用于生成树的树干、树枝等结构
+// Store trunk objects for generating tree structures such as trunks and branches
 let trunk;
-// 树的缩放比例，初始值为 0.5
+// The scaling ratio of the tree, with an initial value of 0.5
 let treeScale = 0.5;
+let maskA = 100;
+let fft;
+let snowOffsetSize = 0;
+let treeScaleOffset = 0;
 
 function preload() {
   img = loadImage('Assets/Anwar Jalal Shemza Apple Tree.jpeg');
@@ -147,6 +155,8 @@ function setup() {
   trunk.generateBranches()
   trunk.growBranch()
 
+  fft = new p5.FFT();
+
   createCanvas(img.width, img.height);
   extractBackgroundPalette();
 
@@ -158,37 +168,40 @@ function setup() {
   addTexture();
   addScratches();
 
-   // 创建50个雪花对象
+  // Initialize snowflakes
   for (let i = 0; i < 50; i++) {
     snowflakes.push(new Snowflake());
   }
 
-  // 当到达第 75 秒时，将 isWinter 设为 false
+  // Switch to spring after 75 seconds
   bgmSound.addCue(75, function () {
     isWinter = false;
   });
 
-  // 创建快速播放/停止按钮
-  fastButton = createButton("Fast");
+  // Create a accelerate/restore button
+  fastButton = createButton("Accelerate");
   fastButton.position(10, 10);
   fastButton.mousePressed(function () {
     isFast = !isFast;
     if (isFast) {
-      // 将 bgmSound 变为 2 倍速
+      // Accelerate playback
       bgmSound.rate(2);
-      // 将 fastButton 的文字改为 Stop
-      fastButton.html("Stop");
+      fastButton.html("Restore");
     } else {
       bgmSound.rate(1);
-      // 将 fastButton 的文字改为 Fast
-      fastButton.html("Fast");
+      fastButton.html("Accelerate");
     }
   })
 }
 
 function draw() {
+  fft.analyze();
+  let eMid = fft.getEnergy("mid");// Obtain intermediate frequency energy
+  snowOffsetSize = map(eMid, 40, 120, 0, 15, true) //Map snowflake size
+  treeScaleOffset = map(eMid, 50, 120, 0, 0.05, true) // Mapping tree scaling
+
   handleDraw();
-  // 快速模式
+  // Acceleration mode: The animation also accelerates by drawing twice
   if (isFast) {
     handleDraw()
   }
@@ -200,49 +213,55 @@ function handleDraw() {
   image(mosaicPG, 0, 0);
   drawBase()
 
-  // 树干
+  // trunk
   push();
   translate(width / 2, trunk.ballYPos);
-  scale(treeScale);
+  scale(treeScale); // Apply scaling
   translate(-width / 2, -trunk.ballYPos);
   for (let ball of balls) {
     ball.display(isWinter);
   }
   pop()
 
+  //Winter Effect
   if (isWinter) {
-    // 昏暗环境
+    if (bgmSound.isPlaying()) {
+      // Draw snow cover
+      fill(255);
+      rect(0, 555 - snowHeight, width, snowHeight);
+      if (snowHeight < 30 && myFrameCount % 30 == 0) {
+        snowHeight++; // Increased snow accumulation
+      }
+    }
+
+    // Dim environment
     noStroke();
     fill(0, 100);
     rect(0, 0, width, height);
 
-    // 如果正在播放
+    // Snow falls while music is playing
     if (bgmSound.isPlaying()) {
-      // 下雪
       for (let flake of snowflakes) {
         flake.update();
         flake.display();
       }
-  
-      // 积雪
-      fill(255);
-      rect(0, 555 - snowHeight, width, snowHeight);
-      if (snowHeight < 80 && myFrameCount % 30 == 0) {
-        snowHeight++;
-      }
     }
   } else {
+    //Spring
     fill(255);
     rect(0, 555 - snowHeight, width, snowHeight);
+
+    noStroke();
+    fill(0, maskA);
+    rect(0, 0, width, height);
+
     if (myFrameCount % 30 == 0) {
-      // 清除积雪
-      if (snowHeight > 0) {
-        snowHeight--;
-      }
-      // 树变大
-      if (treeScale < 1) {
-        treeScale += 0.01;
-      }
+      // Brightening up
+      if (maskA > 0) {maskA -= 5}
+      // Clearing snow
+      if (snowHeight > 0) {snowHeight--;}
+      // The tree grows bigger
+      if (treeScale < 1) {treeScale += treeScaleOffset;}
     }
   }
 
@@ -488,30 +507,32 @@ function drawBase() {
   }
 }
 
+// Snowing
 class Snowflake {
   constructor() {
     this.x = random(width);
     this.y = random(height);
-    this.size = random(2, 8);
+    this.size = random(2, 6);
     this.speed = random(1, 3);
   }
 
-  // 更新雪花位置
+  // Update snowflake position
   update() {
     this.y += this.speed;
-    if (this.y > 550) {
+    if (this.y > 555 - snowHeight) { // eset beyond the bottom
       this.y = random(-100, -10);
       this.x = random(width);
     }
   }
 
-  // 绘制雪花
+  // Draw snowflakes
   display() {
     fill(255);
-    ellipse(this.x, this.y, this.size, this.size);
+    ellipse(this.x, this.y, this.size + snowOffsetSize, this.size + snowOffsetSize);
   }
 }
 
+// Click to play music
 function mousePressed() {
   if (!bgmSound.isPlaying()) {
     bgmSound.play()
